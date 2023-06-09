@@ -17,6 +17,7 @@ import os
 class Track:
     name: str
     artist: str
+    fullName: str
     durationSec: int
 
 
@@ -47,6 +48,7 @@ def getPlaylistTracks(url: str):
         track_result = Track(
             name=track['name'],
             artist=','.join(artists),
+            fullName = f"{','.join(artists)} - {track['name']}",
             durationSec=track['duration_ms']/1000
         )
 
@@ -64,7 +66,7 @@ def _durationStr2Sec(duration: str):
 
 
 def listYoutubeVideos(track: Track):
-    url = f"https://www.youtube.com/results?search_query={track.artist} - {track.name}"
+    url = f"https://www.youtube.com/results?search_query={track.fullName}"
     response = requests.get(url)
 
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -103,12 +105,10 @@ def listYoutubeVideos(track: Track):
 
 
 def chooseYtVideo(track: Track, videos: list[YtVideo]):
-    durationMaxDiffPerc = 5;
+    durationMaxDiffSecs = 5;
 
     for video in videos:
-        durationDiffPerc = abs(track.durationSec - video.durationSec)/track.durationSec*100
-
-        if durationMaxDiffPerc < durationDiffPerc:
+        if abs(track.durationSec - video.durationSec) > durationMaxDiffSecs:
             continue
 
         return video
@@ -118,6 +118,11 @@ def chooseYtVideo(track: Track, videos: list[YtVideo]):
 
 def download_as_mp3(track: Track, video: YtVideo):
     output_path = "/Users/aleksandrsuvorkin/Downloads/music-export"
+    target_file_name = f"{output_path}/{track.fullName}.mp3"
+
+    if os.path.isfile(target_file_name):
+        print(f"already donwloaded {track.fullName}. Skip")
+        return
 
     youtube_url = f"https://www.youtube.com/watch?v={video.id}"    
     yt = YouTube(youtube_url)
@@ -131,12 +136,13 @@ def download_as_mp3(track: Track, video: YtVideo):
     # convert video to mp3
     video_clip = VideoFileClip(output_file)
     audio_clip = video_clip.audio
-    audio_clip.write_audiofile(f"{output_path}/{track.artist} - {track.name}.mp3")
+    audio_clip.write_audiofile(target_file_name)
 
     # optionally, if you want to remove the original .mp4 file after conversion
     # uncomment the following line:
     os.remove(output_file)
 
+    
 
 
 
@@ -145,8 +151,8 @@ def download_as_mp3(track: Track, video: YtVideo):
 
 
 
-url = 'https://open.spotify.com/playlist/0nOvGBAYpQTfA30Rg5WECc?si=dd665b7d3be340dc'
-#url = 'https://open.spotify.com/playlist/1t3y5htNsnQUBvG2pKpVQs?si=24de837b0393409b'
+
+url = 'https://open.spotify.com/playlist/7Gog4SLFOhXobZcwMdGxAF?si=5a9222d3cc824f35' # wake
 tracks = getPlaylistTracks(url)
 
 for track in tracks:
@@ -156,7 +162,8 @@ for track in tracks:
     mainVid = chooseYtVideo(track, vids)
     
     if mainVid is None:
-        print(f"Couldn't find proper YtVideo for {track.artist}-{track.name}")
+        print(f"!!!!!!!! Couldn't find proper YtVideo for {track.artist}-{track.name}")
+        continue
 
     download_as_mp3(track, mainVid)
 
